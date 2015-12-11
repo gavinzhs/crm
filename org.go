@@ -158,6 +158,15 @@ func updateOrgHandler(r *http.Request, org *Org, web *Web, ds *Ds) (int, string)
 		spec["mobile"] = s
 	}
 
+	if s := r.PostFormValue("buy"); s != "" {
+		if b, err := strconv.ParseBool(s); err != nil {
+			rsp.Data = fmt.Sprintf("buy params err")
+			return web.Json(200, rsp)
+		} else {
+			spec["buy"] = b
+		}
+	}
+
 	if s := r.PostFormValue("memo"); s != "" {
 		spec["memo"] = s
 	}

@@ -36,11 +36,11 @@ type Org struct {
 	Children []*Node `bson:"children" json:"children"`
 	Ct       int64   `bson:"ct" json:"ct"`
 	Tp       int     `bson:"tp" json:"tp"`
-	Addr     string  `bson:"addr" json:"addr"`
-	Owner    string  `bson:"owner" json:"owner"`
-	Mobile   string  `bson:"mobile" json:"mobile"`
+	Addr     string  `bson:"addr,omitempty" json:"addr"`
+	Owner    string  `bson:"owner,omitempty" json:"owner"`
+	Mobile   string  `bson:"mobile,omitempty" json:"mobile"`
 	Buy      bool    `bson:"buy" json:"buy"`
-	Memo     string  `bson:"memo" json:"memo"`
+	Memo     string  `bson:"memo,omitempty" json:"memo"`
 }
 
 /**
@@ -49,7 +49,7 @@ type Org struct {
 type Node struct {
 	Id     int    `json:"id"`
 	Name   string `bson:"-" json:"name"`
-	Tp     int    `json:"tp"`
+	Tp     int    `bson:"-" json:"tp"`
 	IsLeaf bool   `bson:"-" json:"isLeaf"` //如果是叶子结点，则表示没有children
 	Addr   string `bson:"-" json:"addr"`
 	Owner  string `bson:"-" json:"owner"`
@@ -68,6 +68,10 @@ func ensureIndex(session *mgo.Session) {
 	idx := mgo.Index{Key: []string{"login"}, Unique: true}
 	err := session.DB(DB).C(C_OPERATOR).EnsureIndex(idx)
 	chk(err)
+
+    idx = mgo.Index{Key: []string{"name", "parent"}, Unique: true}
+    err = session.DB(DB).C(C_ORG).EnsureIndex(idx)
+    chk(err)
 
 	//add root worldOrg if not exist
 	_, err = loadOrgByQuery(session, bson.M{"parent": 0})
