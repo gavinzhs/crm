@@ -3,6 +3,14 @@ package main
 import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"log"
+)
+
+const (
+	ORG_TP_XIAOQU = iota
+	ORG_TP_LOUHAO
+	ORG_TP_DANYUAN
+	ORG_TP_MENPAIHAO
 )
 
 type J map[string]interface{}
@@ -21,8 +29,62 @@ type Operator struct {
 	Ex    *opEx         `json:"-"`
 }
 
-func ensureIndex(db *mgo.Session) {
+type Org struct {
+	Id       int     `bson:"_id" json:"id"`
+	Parent   int     `bson:"parent" json:"parent"`
+	Name     string  `bson:"name" json:"name"`
+	Children []*Node `bson:"children" json:"children"`
+	Ct       int64   `bson:"ct" json:"ct"`
+	Tp       int     `bson:"tp" json:"tp"`
+	Addr     string  `bson:"addr" json:"addr"`
+	Owner    string  `bson:"owner" json:"owner"`
+	Mobile   string  `bson:"mobile" json:"mobile"`
+	Buy      bool    `bson:"buy" json:"buy"`
+	Memo     string  `bson:"memo" json:"memo"`
+}
+
+/**
+ * 用来返回组织结构的children，可以是用户，也可以是组织结构
+ */
+type Node struct {
+	Id     int    `json:"id"`
+	Name   string `bson:"-" json:"name"`
+	Tp     int    `json:"tp"`
+	IsLeaf bool   `bson:"-" json:"isLeaf"` //如果是叶子结点，则表示没有children
+	Addr   string `bson:"-" json:"addr"`
+	Owner  string `bson:"-" json:"owner"`
+	Mobile string `bson:"-" json:"mobile"`
+	Buy    bool   `bson:"-" json:"buy"`
+	Memo   string `bson:"-" json:"memo"`
+}
+
+type Seq struct {
+	Id   bson.ObjectId `bson:"_id"`
+	Name string
+	N    int
+}
+
+func ensureIndex(session *mgo.Session) {
 	idx := mgo.Index{Key: []string{"login"}, Unique: true}
-	err := db.DB(DB).C(C_OPERATOR).EnsureIndex(idx)
+	err := session.DB(DB).C(C_OPERATOR).EnsureIndex(idx)
 	chk(err)
+
+	//add root worldOrg if not exist
+	_, err = loadOrgByQuery(session, bson.M{"parent": 0})
+	if notFound(err) {
+		n, err := seq(session, SEQ_ORG)
+		if err != nil {
+			log.Fatalf("seq err : %v", err)
+		}
+		org := &Org{
+			Id:   n,
+			Name: "安哥地盘",
+			Tp:   -1,
+			Ct:   tick(),
+		}
+		err = addOrg(session, org)
+		chk(err)
+	} else {
+		chk(err)
+	}
 }

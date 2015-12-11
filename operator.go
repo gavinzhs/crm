@@ -6,16 +6,19 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"log"
 	"net/http"
-	"strconv"
+	"strings"
 )
 
-type AdminLoginForm struct {
-	Name   string `json:"name" binding:"required"`
-	Passwd string `json:"passwd" binding:"required"`
-}
+func adminLoginHandler(r *http.Request, web *Web, ds *Ds, session sessions.Session) (int, string) {
 
-func adminLoginHandler(form AdminLoginForm, web *Web, ds *Ds, session sessions.Session) (int, string) {
-	QUERY := bson.M{"login": form.Name, "ex.password": buildToken(form.Passwd)}
+	name := strings.TrimSpace(r.PostFormValue("name"))
+	passwd := strings.TrimSpace(r.PostFormValue("passwd"))
+
+	if name == "" || passwd == "" {
+		return 400, "用户名与密码不能为空"
+	}
+
+	QUERY := bson.M{"login": name, "ex.password": buildToken(passwd)}
 	var u *Operator
 	err := ds.se.DB(DB).C(C_OPERATOR).Find(QUERY).One(&u)
 	if err != nil {
@@ -39,18 +42,26 @@ func adminMeHandler(web *Web, opSe *OpSession) (int, string) {
 	return web.Json(200, opSe.me)
 }
 
-type UpdatePasswdForm struct {
-	CurrentPasswd string `json:"currentPasswd" binding:"required"`
-	NewPasswd     string `json:"newPasswd" binding:"required"`
-}
+//type UpdatePasswdForm struct {
+//	CurrentPasswd string `json:"currentPasswd" binding:"required"`
+//	NewPasswd     string `json:"newPasswd" binding:"required"`
+//}
 
-func adminUpdatePasswdHandler(form UpdatePasswdForm, opSe *OpSession, ds *Ds) (int, string) {
+func adminUpdatePasswdHandler(r *http.Request, opSe *OpSession, ds *Ds) (int, string) {
+
+	currentPasswd := strings.TrimSpace(r.PostFormValue("currentPasswd"))
+	newPasswd := strings.TrimSpace(r.PostFormValue("newPasswd"))
+
+	if currentPasswd == "" || newPasswd == "" {
+		return 400, "密码不能为空"
+	}
+
 	me := opSe.me
-	if me.Ex.Password != buildToken(form.CurrentPasswd) {
+	if me.Ex.Password != buildToken(currentPasswd) {
 		return 400, "当前密码错误!"
 	}
 
-	err := updateOperatorPassword(ds, me.Id, buildToken(form.NewPasswd))
+	err := updateOperatorPassword(ds, me.Id, buildToken(newPasswd))
 	if err != nil {
 		log.Println("update op password err", me.Login, err)
 		return 500, "更新出错!"
@@ -81,17 +92,16 @@ func listOpHandler(r *http.Request, ds *Ds, web *Web) (int, string) {
 	return web.Json(200, j)
 }
 
-type OpForm struct {
-	Login  string `json:"login" binding:"required"`
-	Passwd string `json:"passwd" binding:"required"`
-}
+func createOpHandler(r *http.Request, ds *Ds) (int, string) {
 
-func createOpHandler(form OpForm, ds *Ds) (int, string) {
+	login := strings.TrimSpace(r.PostFormValue("login"))
+	passwd := strings.TrimSpace(r.PostFormValue("passwd"))
+
 	op := &Operator{
 		Id:    newId(),
-		Login: form.Login,
+		Login: login,
 
-		Ex: &opEx{Password: buildToken(form.Passwd)},
+		Ex: &opEx{Password: buildToken(passwd)},
 		Ct: tick(),
 	}
 	err := ds.se.DB(DB).C(C_OPERATOR).Insert(op)
@@ -116,16 +126,14 @@ func delOpHandler(ds *Ds, web *Web, param martini.Params, op *Operator) (int, st
 	return web.Json(200, "ok")
 }
 
-type NameForm struct {
-	Name string `binding:"required"`
-}
+func checkOpLoginNameHandler(r *http.Request, ds *Ds, param martini.Params) (int, string) {
 
-func checkOpLoginNameHandler(form NameForm, ds *Ds, param martini.Params) (int, string) {
+	name := strings.TrimSpace(r.PostFormValue("name"))
 
-	if form.Name == "" {
+	if name == "" {
 		return 400, "登录名不能为空!"
 	}
-	_, err := loadOperatorByLoginName(ds, form.Name)
+	_, err := loadOperatorByLoginName(ds, name)
 
 	if err != nil {
 		if notFound(err) {
@@ -138,39 +146,8 @@ func checkOpLoginNameHandler(form NameForm, ds *Ds, param martini.Params) (int, 
 	return 200, "登录名已存在!"
 }
 
-type UpdateVoForm struct {
-	Id  bson.ObjectId `json:"id" binding:"required"`
-	Key string        `json:"key" binding:"requried"`
-	Val string        `json:"val"`
-}
-
-func updateOpHandler(form UpdateVoForm, ds *Ds, op *Operator) (int, string) {
-	switch form.Key {
-	case "name", "email", "mobile":
-		SPEC := bson.M{"mt": tick()}
-		SPEC[form.Key] = form.Val
-		err := ds.se.DB(DB).C(C_OPERATOR).UpdateId(op.Id, bson.M{"$set": SPEC})
-		chk(err)
-	case "system":
-		sys, err := strconv.Atoi(form.Val)
-		chk(err)
-		SPEC := bson.M{"mt": tick()}
-		SPEC[form.Key] = sys
-		err = ds.se.DB(DB).C(C_OPERATOR).UpdateId(op.Id, bson.M{"$set": SPEC})
-		chk(err)
-	default:
-		return 400, "[warning] unkown edit key: " + form.Key
-	}
-	return 200, ""
-}
-
-type ResetOpPasswordForm struct {
-	Id       bson.ObjectId `json:"id" binding:"required"`
-	Password string        `json:"password" binding:"required"`
-}
-
-func resetOpPasswordHandler(form ResetOpPasswordForm, ds *Ds) (int, string) {
-	err := updateOperatorPassword(ds, form.Id, buildToken(form.Password))
+func resetOpPasswordHandler(r *http.Request, ds *Ds) (int, string) {
+	err := updateOperatorPassword(ds, bson.ObjectIdHex(strings.TrimSpace(r.PostFormValue("id"))), buildToken(strings.TrimSpace(r.PostFormValue("password"))))
 	chk(err)
 	return 200, ""
 }

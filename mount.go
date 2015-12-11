@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/go-martini/martini"
-	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/gzip"
 	"github.com/martini-contrib/render"
 	"github.com/quexer/sessions"
@@ -51,24 +50,33 @@ func mount(session *mgo.Session, war string) {
 	m.Use(sessions.Sessions(SESSION_NAME, g_session_store))
 
 	m.Group("/admin/pub", func(r martini.Router) {
-		r.Post("/login", binding.Bind(AdminLoginForm{}), adminLoginHandler)
+		r.Post("/login", adminLoginHandler)
 		r.Post("/logout", adminLogoutHandler)
 	})
 
 	m.Group("/admin", func(admin martini.Router) {
 		admin.Get("/me", adminMeHandler)
-		admin.Post("/me/passwd", binding.Bind(UpdatePasswdForm{}), adminUpdatePasswdHandler)
+		admin.Post("/me/passwd", adminUpdatePasswdHandler)
 		admin.Group("/op", func(r martini.Router) {
-			r.Post("", binding.Bind(OpForm{}), createOpHandler)
+			r.Post("", createOpHandler)
 			r.Get("", listOpHandler)
-			r.Post("/check/login/name", binding.Bind(NameForm{}), checkOpLoginNameHandler)
-			r.Post("/reset_password", binding.Bind(ResetOpPasswordForm{}), resetOpPasswordHandler)
+			r.Post("/check/login/name", checkOpLoginNameHandler)
+			r.Post("/reset_password", resetOpPasswordHandler)
 
 			r.Group("/(?P<id>[0-9a-z]{24})", func(r martini.Router) {
 				r.Get("", showOpHandler)
-				r.Post("", binding.Bind(UpdateVoForm{}), updateOpHandler) //todo 这个貌似就没用。。。
+				//				r.Post("", updateOpHandler)
 				r.Delete("", delOpHandler)
 			}, midOp)
+		})
+
+		admin.Group("/org", func(org martini.Router) {
+			org.Post("", createOrgHandler)
+			org.Group(`/(?P<oid>\d+)`, func(r martini.Router) {
+				r.Get("", portalShowOrgHandler)
+				r.Post("", updateOrgHandler)
+				r.Delete("", delOrgHandler)
+			}, midOrg)
 		})
 	}, midAdminMe)
 

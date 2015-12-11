@@ -22,6 +22,9 @@ func main() {
 	log.Println("connect mongo")
 	session := connect(DB_CON)
 
+	//init seq
+	initSeq(session)
+
 	log.Println("ensure index")
 	ensureIndex(session)
 

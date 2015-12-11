@@ -63,6 +63,11 @@ func (p *Web) Code(code int) (int, string) {
 	return code, http.StatusText(code)
 }
 
+type Rsp struct {
+	Code int         `json:"code"`
+	Data interface{} `json:"data"`
+}
+
 func parseIntParam(r *http.Request, name string, defaultVal int) (int, error) {
 	val := defaultVal
 	if s := r.FormValue(name); s != "" {

@@ -4,8 +4,10 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
 	"github.com/quexer/sessions"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"net/http"
+	"strconv"
 )
 
 const (
@@ -51,4 +53,24 @@ func midOp(param martini.Params, rd render.Render, c martini.Context, ds *Ds) {
 
 	chk(err)
 	c.Map(o)
+}
+
+func midOrg(param martini.Params, w http.ResponseWriter, c martini.Context, ds *Ds) {
+	oid := param["oid"]
+	id, _ := strconv.Atoi(oid)
+
+	var org *Org
+	var err error
+	if id == 0 {
+		org, err = loadOrgByQuery(ds.se, bson.M{"parent": id})
+	} else {
+		org, err = loadOrg(ds.se, id)
+	}
+
+	if err == mgo.ErrNotFound {
+		http.Error(w, "org not found", 404)
+		return
+	}
+	chk(err)
+	c.Map(org)
 }

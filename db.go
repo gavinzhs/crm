@@ -10,6 +10,8 @@ const (
 	DB = "crm"
 
 	C_OPERATOR = "operator"
+	C_ORG      = "org"
+	C_SEQ      = "seq"
 )
 
 type Ds struct {
@@ -76,4 +78,81 @@ func updateOperatorPassword(ds *Ds, id bson.ObjectId, password string) error {
 
 func delOperator(ds *Ds, id bson.ObjectId) error {
 	return ds.se.DB(DB).C(C_OPERATOR).RemoveId(id)
+}
+
+//Org
+func loadOrg(session *mgo.Session, id int) (*Org, error) {
+	var org *Org
+	err := session.DB(DB).C(C_ORG).FindId(id).One(&org)
+	return org, err
+}
+
+func loadOrgByQuery(session *mgo.Session, query bson.M) (*Org, error) {
+	var org *Org
+	if err := session.DB(DB).C(C_ORG).Find(query).One(&org); err != nil {
+		return nil, err
+	}
+	return org, nil
+}
+
+func loadOrgs(session *mgo.Session, ids []int) ([]*Org, error) {
+	l := []*Org{}
+	err := session.DB(DB).C(C_ORG).Find(bson.M{"_id": bson.M{"$in": ids}}).All(&l)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+func listOrgByQuery(session *mgo.Session, query bson.M) ([]*Org, error) {
+	l := []*Org{}
+	err := session.DB(DB).C(C_ORG).Find(query).All(&l)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+func addOrg(session *mgo.Session, org *Org) error {
+	return session.DB(DB).C(C_ORG).Insert(org)
+}
+
+func updateOrg(session *mgo.Session, org *Org) error {
+	return session.DB(DB).C(C_ORG).UpdateId(org.Id, org)
+}
+
+func delOrg(session *mgo.Session, org *Org) error {
+	node := &Node{
+		Id: org.Id,
+		Tp: org.Tp,
+	}
+
+	//将该节点从父节点中删除
+	SPEC := bson.M{"$pull": bson.M{"children": node}}
+	if err := session.DB(DB).C(C_ORG).UpdateId(org.Parent, SPEC); err != nil {
+		return err
+	}
+
+	//todo 没有处理下级成员  按说应该是删除  不应该直接升级为上一级菜单子类
+	return session.DB(DB).C(C_ORG).RemoveId(org.Id)
+}
+
+func prepareOrgForPortal(session *mgo.Session, org *Org) error {
+	for _, child := range org.Children {
+		log.Println("child id:", child.Id)
+		o, err := loadOrg(session, child.Id)
+		if err != nil {
+			return err
+		}
+		child.Name = o.Name
+		child.Addr = o.Addr
+		child.Owner = o.Owner
+		child.Mobile = o.Mobile
+		child.Buy = o.Buy
+		child.Memo = o.Memo
+
+		child.IsLeaf = (len(o.Children) == 0)
+	}
+
+	return nil
 }
