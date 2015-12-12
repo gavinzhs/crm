@@ -198,3 +198,113 @@ func delOrgHandler(org *Org, web *Web, ds *Ds) (int, string) {
 
 	return 200, ""
 }
+
+func listOrgHandler(r *http.Request, web *Web, ds *Ds) (int, string) {
+	l, err := listOrgByQuery(ds.se, bson.M{"tp": bson.M{"$lt": ORG_TP_MENPAIHAO}})
+	chk(err)
+
+	//build map
+	m := map[int]*Org{}
+	for _, o := range l {
+		m[o.Id] = o
+	}
+
+	//find root
+	root := func() *Org {
+		for _, o := range l {
+			if o.Parent == 0 {
+				return o
+			}
+		}
+		return nil
+	}()
+
+	result := []J{}
+	var appendOrg func(*Org, int)
+
+	appendOrg = func(o *Org, level int) {
+		if o == nil {
+			return
+		}
+		result = append(result, J{"id": o.Id, "name": strings.Repeat("　", level) + o.Name})
+		for _, child := range o.Children {
+			appendOrg(m[child.Id], level+1)
+		}
+	}
+
+	appendOrg(root, 0)
+	return web.Json(200, result)
+
+}
+
+func listMenPaiHaoHandler(r *http.Request, web *Web, ds *Ds) (int, string) {
+	query := bson.M{"tp": ORG_TP_MENPAIHAO}
+
+	oid := strings.TrimSpace(r.FormValue("id"))
+	if oid != "" {
+		id, err := strconv.Atoi(oid)
+		if err != nil {
+			return 400, "id invalid"
+		}
+
+		org, err := loadOrg(ds.se, id)
+		if err != nil {
+			return 400, "not found the org"
+		}
+
+		l, err := listOrgByQuery(ds.se, nil)
+		chk(err)
+
+		m := map[int]*Org{}
+		for _, o := range l {
+			m[o.Id] = o
+		}
+
+		result := []int{}
+		var appendOrg func(*Org)
+		appendOrg = func(o *Org) {
+			if o == nil {
+				return
+			}
+			for _, child := range o.Children {
+				if child.Tp == ORG_TP_MENPAIHAO {
+					result = append(result, child.Id)
+				} else {
+					appendOrg(m[child.Id])
+				}
+			}
+		}
+
+		appendOrg(org)
+
+		query["_id"] = bson.M{"$in": result}
+	}
+
+	if buy := strings.TrimSpace(r.FormValue("buy")); buy != "" {
+		buyBool, err := strconv.ParseBool(buy)
+		if err != nil {
+			return 400, "buy params err"
+		}
+		query["buy"] = buyBool
+	}
+
+	page, err := parseIntParam(r, "page", 1)
+	if err != nil {
+		return 400, err.Error()
+	}
+	size, err := parseIntParam(r, "size", 10)
+	if err != nil {
+		return 400, err.Error()
+	}
+
+	l, total, err := listOrg(ds, query, (page-1)*size, size)
+	chk(err)
+
+	j := J{
+		"data":  l,
+		"total": total,
+		"page":  page,
+		"size":  size,
+	}
+	return web.Json(200, j)
+}

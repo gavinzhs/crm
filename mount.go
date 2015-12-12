@@ -72,6 +72,8 @@ func mount(session *mgo.Session, war string) {
 
 		admin.Group("/org", func(org martini.Router) {
 			org.Post("", createOrgHandler)
+			org.Get("", listOrgHandler)
+			org.Get("/listMenPaiHao", listMenPaiHaoHandler)
 			org.Group(`/(?P<oid>\d+)`, func(r martini.Router) {
 				r.Get("", portalShowOrgHandler)
 				r.Post("", updateOrgHandler)

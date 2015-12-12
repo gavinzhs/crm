@@ -113,6 +113,22 @@ func listOrgByQuery(session *mgo.Session, query bson.M) ([]*Org, error) {
 	return l, nil
 }
 
+func listOrg(ds *Ds, query bson.M, skip int, limit int) ([]*Org, int, error) {
+	l := []*Org{}
+	Q := ds.se.DB(DB).C(C_ORG).Find(query).Sort("-ct")
+	total, err := Q.Count()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if err := Q.Skip(skip).Limit(limit).All(&l); err != nil {
+		return nil, 0, err
+	}
+
+	return l, total, nil
+
+}
+
 func addOrg(session *mgo.Session, org *Org) error {
 	return session.DB(DB).C(C_ORG).Insert(org)
 }

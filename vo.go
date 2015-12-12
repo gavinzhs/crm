@@ -47,9 +47,9 @@ type Org struct {
  * 用来返回组织结构的children，可以是用户，也可以是组织结构
  */
 type Node struct {
-	Id     int    `json:"id"`
+	Id     int    `bson:"id" json:"id"`
 	Name   string `bson:"-" json:"name"`
-	Tp     int    `bson:"-" json:"tp"`
+	Tp     int    `bson:"tp" json:"tp"`
 	IsLeaf bool   `bson:"-" json:"isLeaf"` //如果是叶子结点，则表示没有children
 	Addr   string `bson:"-" json:"addr"`
 	Owner  string `bson:"-" json:"owner"`
@@ -69,9 +69,9 @@ func ensureIndex(session *mgo.Session) {
 	err := session.DB(DB).C(C_OPERATOR).EnsureIndex(idx)
 	chk(err)
 
-    idx = mgo.Index{Key: []string{"name", "parent"}, Unique: true}
-    err = session.DB(DB).C(C_ORG).EnsureIndex(idx)
-    chk(err)
+	idx = mgo.Index{Key: []string{"name", "parent"}, Unique: true}
+	err = session.DB(DB).C(C_ORG).EnsureIndex(idx)
+	chk(err)
 
 	//add root worldOrg if not exist
 	_, err = loadOrgByQuery(session, bson.M{"parent": 0})
