@@ -92,7 +92,11 @@ func listOpHandler(r *http.Request, ds *Ds, web *Web) (int, string) {
 	return web.Json(200, j)
 }
 
-func createOpHandler(r *http.Request, ds *Ds) (int, string) {
+func createOpHandler(r *http.Request, ds *Ds, opse *OpSession) (int, string) {
+
+	if opse.me.Login != "admin" {
+		return 403, "没有权限"
+	}
 
 	login := strings.TrimSpace(r.PostFormValue("login"))
 	passwd := strings.TrimSpace(r.PostFormValue("passwd"))
