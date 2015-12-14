@@ -23,10 +23,13 @@ func (p *Ds) Copy() *Ds {
 }
 
 func connect(db_con string) *mgo.Session {
+	log.Printf("开始连接:%s", db_con)
 	session, err := mgo.Dial(db_con)
 	if err != nil {
+		log.Println("连接失败")
 		log.Fatal(err)
 	}
+	log.Println("连接成功")
 	return session
 }
 
@@ -115,7 +118,7 @@ func listOrgByQuery(session *mgo.Session, query bson.M) ([]*Org, error) {
 
 func listOrg(ds *Ds, query bson.M, skip int, limit int) ([]*Org, int, error) {
 	l := []*Org{}
-	Q := ds.se.DB(DB).C(C_ORG).Find(query).Sort("-ct")
+	Q := ds.se.DB(DB).C(C_ORG).Find(query).Sort("name")
 	total, err := Q.Count()
 	if err != nil {
 		return nil, 0, err

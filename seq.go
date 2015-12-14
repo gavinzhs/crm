@@ -6,6 +6,7 @@ package main
 import (
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"log"
 )
 
 const (
@@ -27,6 +28,7 @@ func seq(session *mgo.Session, name string) (int, error) {
 }
 
 func initSeq(session *mgo.Session) error {
+	log.Println("初始化计数器")
 	var n Seq
 	c := session.DB(DB).C(C_SEQ)
 	INIT_NAMES := []string{SEQ_ORG}

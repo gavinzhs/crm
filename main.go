@@ -8,7 +8,7 @@ import (
 
 const (
 	SALT   = "Pcmmr]g[*Z'v"
-	DB_CON = "crm:crm@:27017/crm?maxPoolSize=50"
+	DB_CON = "crm:crm@127.0.0.1:27017/crm?maxPoolSize=50"
 )
 
 func main() {
