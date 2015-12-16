@@ -129,6 +129,96 @@ func createOrgHandler(r *http.Request, web *Web, ds *Ds) (int, string) {
 	return web.Json(200, rsp)
 }
 
+func batchAddOrgHandler(r *http.Request, web *Web, ds *Ds) (int, string) {
+	parent := strings.TrimSpace(r.PostFormValue("parent"))
+	floor := strings.TrimSpace(r.PostFormValue("floor"))
+	door := strings.TrimSpace(r.PostFormValue("door"))
+
+	rsp := &Rsp{
+		Code: 0,
+	}
+
+	if parent == "" || floor == "" || door == "" {
+		rsp.Data = "parameter required"
+		return web.Json(200, rsp)
+	}
+
+	parentId, err := strconv.Atoi(parent)
+	if err != nil {
+		rsp.Data = fmt.Sprintf("bad parent: %s", parent)
+		return web.Json(200, rsp)
+	}
+
+	if parentOrg, err := loadOrg(ds.se, parentId); err != nil {
+		log.Printf("load org err : %v", err)
+		rsp.Data = fmt.Sprintf("parent: %s not found", parent)
+		return web.Json(200, rsp)
+	} else if parentOrg.Tp != ORG_TP_DANYUAN {
+		rsp.Data = fmt.Sprintf("parent: %s is not 单元", parent)
+		return web.Json(200, rsp)
+	}
+
+	f, err := strconv.Atoi(floor)
+	if err != nil {
+		rsp.Data = fmt.Sprintf("bad floor: %s", floor)
+		return web.Json(200, rsp)
+	}
+
+	d, err := strconv.Atoi(door)
+	if err != nil {
+		rsp.Data = fmt.Sprintf("bad door: %s", door)
+		return web.Json(200, rsp)
+	}
+
+	insertOrg := []interface{}{}
+	nodes := []*Node{}
+	for i := 1; i <= f; i++ {
+		for n := 1; n <= d; n++ {
+			id, err := seq(ds.se, SEQ_ORG)
+			if err != nil {
+				rsp.Data = "generate id error"
+				return web.Json(200, rsp)
+			}
+
+			dName := strconv.Itoa(n)
+			if n < 10 {
+				dName = "0" + strconv.Itoa(n)
+			}
+
+			org := &Org{
+				Id:     id,
+				Parent: parentId,
+				Name:   strconv.Itoa(i) + dName,
+				Tp:     ORG_TP_MENPAIHAO,
+				Buy:    false,
+				Ct:     tick(),
+			}
+
+			node := &Node{
+				Id: id,
+				Tp: ORG_TP_MENPAIHAO,
+			}
+			nodes = append(nodes, node)
+			insertOrg = append(insertOrg, org)
+		}
+	}
+
+	if err = ds.se.DB(DB).C(C_ORG).UpdateId(parentId, bson.M{"$push": bson.M{"children": bson.M{"$each": nodes}}}); err != nil {
+		log.Printf("[batch add org] update parent org err : %v", err)
+		rsp.Data = "[batch add org] update parent org err"
+		return web.Json(200, rsp)
+	}
+	if err = ds.se.DB(DB).C(C_ORG).Insert(insertOrg...); err != nil {
+		log.Printf("[batch add org] insert orgs err : %v", err)
+		rsp.Data = "[batch add org] insert orgs err"
+		return web.Json(200, rsp)
+	}
+
+	rsp.Code = 1
+	rsp.Data = "batch add orgs successfully"
+	return web.Json(200, rsp)
+}
+
 func portalShowOrgHandler(org *Org, web *Web, ds *Ds) (int, string) {
 	prepareOrgForPortal(ds.se, org)
 

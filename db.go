@@ -158,7 +158,6 @@ func delOrg(session *mgo.Session, org *Org) error {
 
 func prepareOrgForPortal(session *mgo.Session, org *Org) error {
 	for _, child := range org.Children {
-		log.Println("child id:", child.Id)
 		o, err := loadOrg(session, child.Id)
 		if err != nil {
 			return err
